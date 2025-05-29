@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 import discord
@@ -15,20 +16,26 @@ class ContestManager(commands.Cog):
         self.bot = bot
         self.server_config_collection = bot.db["ServerConfig"]
         self.jobs = ContestJobs(cog=self)
-        self.jobs.schedule_job()
 
     async def track_image_upload(self, message: discord.Message):
-        submission_channel = await get_submission_channel(self)
+        submission_channel = await get_submission_channel(self.bot, message.guild.id)
+        if submission_channel is None:
+            return
         if message.channel.id != submission_channel.id or not message.attachments:
             return
         user_id = message.author.id
+        guild_id = message.guild.id
         attachment = message.attachments[0]
         current_month = datetime.now(GMT_TIMEZONE).strftime("%Y-%m")
 
         submissions = self.bot.db.submissions
 
         image_bytes = await  attachment.read()
-        output_path = f"bot/data/submissions/{str(user_id)}.webp"
+        folder_path = f"bot/data/submissions/{guild_id}"
+        os.makedirs(folder_path, exist_ok=True)
+
+        output_path = os.path.join(folder_path, f"{user_id}.webp")
+
         await resize_and_save_image(image_bytes, output_path)
         print(f"Saved image for {user_id} at {output_path}")
 

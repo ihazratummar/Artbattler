@@ -1,9 +1,10 @@
 from datetime import datetime
+from pathlib import Path
 
 import discord
 
 from bot import GMT_TIMEZONE
-from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_guild, get_voting_channel, \
+from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url
 
 
@@ -14,20 +15,22 @@ class ContestJobs:
         self.collection = self.bot.db["ServerConfig"]
         self.submissions_collection = self.bot.db["submissions"]
 
-    def schedule_job(self):
+    async def schedule_job(self):
         scheduler = self.bot.scheduler
-        scheduler.add_job(self.open_submission_channel, "cron", day=29, hour=9, minute=50, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.close_submission_channel, "cron", day=29, hour=9, minute=55, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.post_submission_to_forum, "cron", day=29, hour=10, minute=2, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.open_voting_channel, "cron", day=29, hour=10, minute=3, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.close_voting_channel, "cron", day=29, hour=10, minute=6, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.announce_winner, "cron", day=29, hour=10, minute=6, timezone=GMT_TIMEZONE)
-        scheduler.add_job(self.close_contest, "cron", day=29, hour=10, minute=6, timezone=GMT_TIMEZONE)
+        async for config in self.collection.find({}):
+            guild_id = config["_id"]
 
-    async def open_submission_channel(self):
-        submission_channel = await get_submission_channel(self.cog)
-        # logs_channel = await self.cog.get_logs_channel()
-        member = await get_contest_role(self.cog)
+            scheduler.add_job(self.open_submission_channel, "cron", day=29, hour=13, minute=51, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_submission_channel, "cron", day=29, hour=13, minute=53, second = 0,  timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.post_submission_to_forum, "cron", day=29, hour=13, minute=53, second = 0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.open_voting_channel, "cron", day=29, hour=13, minute=53,second = 30, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_voting_channel, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.announce_winner, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_contest, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+
+    async def open_submission_channel(self, guild_id: int = None):
+        submission_channel = await get_submission_channel(self.bot, guild_id= guild_id)
+        member = await get_contest_role(self.bot, guild_id= guild_id)
         if submission_channel is None:
             print("❌ Submission channel not set.")
             return
@@ -43,14 +46,15 @@ class ContestJobs:
             overwrites.send_messages = True
             overwrites.view_channel = True
             overwrites.read_message_history = False
+            overwrites.attach_files = True
             try:
                 await submission_channel.set_permissions(member, overwrite=overwrites)
             except discord.Forbidden:
                 print("❌ Bot does not have permission to set permissions in the submission channel.")
                 return
 
-        announcement_channel = await  get_contest_announcement_channel(self.cog)
-        contest_ping_role = await get_contest_ping_role(self.cog)
+        announcement_channel = await  get_contest_announcement_channel(self.bot, guild_id= guild_id)
+        contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
         print(f"Contest ping role: {contest_ping_role}")
         if announcement_channel is not None:
             await announcement_channel.send(
@@ -58,9 +62,9 @@ class ContestJobs:
             )
         print("🔓 Opened submission channel at", datetime.utcnow())
 
-    async def close_submission_channel(self):
-        submission_channel = await get_submission_channel(self.cog)
-        member = await get_contest_role(self.cog)
+    async def close_submission_channel(self, guild_id: int = None):
+        submission_channel = await get_submission_channel(self.bot, guild_id=guild_id)
+        member = await get_contest_role(self.bot, guild_id= guild_id)
         if submission_channel is None:
             print("❌ Submission channel not set.")
             return
@@ -78,16 +82,24 @@ class ContestJobs:
 
         print("🔒 Closed submission channel at", datetime.utcnow())
 
-    async def post_submission_to_forum(self):
-        guild = get_guild(self.cog)
-        voting_channel = await get_voting_channel(self.cog)
+    async def post_submission_to_forum(self, guild_id: int = None,):
+        guild = self.bot.get_guild(guild_id)
+
+        if guild is None:
+            print("❌ Guild not found.")
+            return None
+
+        voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
+        if voting_channel is None:
+            return print("❌ Voting channel not set.")
+
         current_month = datetime.now(GMT_TIMEZONE).strftime("%Y-%m")
         submissions = self.submissions_collection.find({"month": current_month})
 
-        member = await get_contest_role(self.cog)
+        member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
             print("❌ Contest role not set.")
-            return
+            return None
 
         async for entry in submissions:
             user = guild.get_member(entry["user_id"])
@@ -111,14 +123,16 @@ class ContestJobs:
                 {"_id": entry["_id"]},
                 {"$set": {"thread_id": thread.message.id}}
             )
+            return None
+        return None
 
-    async def open_voting_channel(self):
-        voting_channel = await get_voting_channel(self.cog)
-        announcement_channel = await get_contest_announcement_channel(self.cog)
+    async def open_voting_channel(self, guild_id: int = None,):
+        voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
+        announcement_channel = await get_contest_announcement_channel(self.bot, guild_id= guild_id)
         if voting_channel is None:
             print("❌ Voting channel not set.")
             return
-        member = await get_contest_role(self.cog)
+        member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
             print("❌ Contest role not set.")
             return
@@ -135,12 +149,12 @@ class ContestJobs:
                 print("❌ Bot does not have permission to set permissions in the voting channel.")
                 return
 
-    async def close_voting_channel(self):
-        voting_channel = await get_voting_channel(self.cog)
+    async def close_voting_channel(self, guild_id: int = None,):
+        voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
         if voting_channel is None:
             print("❌ Voting channel not set.")
             return
-        member = await get_contest_role(self.cog)
+        member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
             print("❌ Contest role not set.")
             return
@@ -152,9 +166,15 @@ class ContestJobs:
             await voting_channel.set_permissions(target=member, overwrite=overwrites)
 
 
-    async def announce_winner(self):
-        guild = get_guild(self.cog)
-        voting_channel = await get_voting_channel(self.cog)
+    async def announce_winner(self, guild_id: int = None,):
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            print("❌ Guild not found.")
+            return None
+
+        voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
+        if voting_channel is None:
+            return print("❌ Voting channel not set.")
 
         now = datetime.now(GMT_TIMEZONE)
         current_month = now.month
@@ -176,14 +196,14 @@ class ContestJobs:
 
         if not winners:
             print("❌ No winner found.")
-            return
+            return None
 
-        announcement_channel = await get_contest_announcement_channel(self.cog)
+        announcement_channel = await get_contest_announcement_channel(self.bot, guild_id= guild_id)
         if announcement_channel is None:
             print("❌ Announcement channel not set.")
-            return
+            return None
 
-        contest_ping_role = await get_contest_ping_role(self.cog)
+        contest_ping_role = await get_contest_ping_role(self.bot, guild_id=guild_id)
         print(f"Contest ping role: {contest_ping_role}")
         if contest_ping_role is None:
             print("❌ Contest ping role not set.")
@@ -213,12 +233,19 @@ class ContestJobs:
                 embed=embed,
                 content=content
             )
+            return None
+        return None
 
-
-    async def close_contest(self):
-        guild = get_guild(self.cog)
-        voting_channel = await get_voting_channel(self.cog)
-        art_archive_channel = await get_contest_archive_channel(self.cog)
+    async def close_contest(self, guild_id: int = None,):
+        guild = self.bot.get_guild(guild_id)
+        voting_channel = await get_voting_channel(self.bot, guild_id= guild_id)
+        art_archive_channel = await get_contest_archive_channel(self.bot, guild_id= guild_id)
+        if voting_channel is None:
+            print("❌ Voting channel not set.")
+            return
+        if art_archive_channel is None:
+            print("❌ Art archive channel not set.")
+            return
         threads = voting_channel.threads
         print(f"Archiving {len(threads)} threads...")
         for thread in threads:
@@ -234,13 +261,23 @@ class ContestJobs:
                     if msg.attachments:
                         attachment = msg.attachments[0]
                         file  = await get_discord_file_from_url(attachment.url ,attachment.filename)
-
                         await art_archive_channel.create_thread(
                             name=f"{user.display_name}'s Art Submission",
                             content=f"{user.display_name} \nTotal votes: {sum(r.count for r in msg.reactions)}",
                             file= file,
                             reason=f"Archived from the {voting_channel.name} contest."
                         )
+
+                        guild_folder  = Path(f"bot/data/submissions/{guild_id}")
+                        if guild_folder.exists():
+                            for file in guild_folder.iterdir():
+                                try:
+                                    file.unlink()
+                                    print(f"Deleted {file}")
+                                except Exception as e:
+                                    print(f"Error deleting {file}: {e}")
+                        else:
+                            print(f"No guild folder found for {guild_id}")
 
                     # Delete the thread after archiving
                 await thread.delete()

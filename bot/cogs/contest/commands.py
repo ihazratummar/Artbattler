@@ -58,6 +58,23 @@ class ContestCommands(commands.Cog):
         if not isinstance(role, discord.Role):
             await ctx.send("Please select a valid role.")
             return
+
+        bot_member = ctx.guild.me
+
+        server_config = await self.collection.find_one({"_id": ctx.guild.id})
+        announcement_channel = ctx.guild.get_channel(server_config.get("contest_announcement_channel"))
+        if announcement_channel:
+            if role not in announcement_channel.overwrites:
+                overwrites = {
+                    role: discord.PermissionOverwrite(view_channel=True, read_message_history=True,send_messages=False),
+                    ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False, read_message_history=False, send_messages=False),
+                    bot_member: discord.PermissionOverwrite(view_channel=True, manage_channels=True, send_messages=True, manage_threads=True, read_message_history=True)
+                }
+                await announcement_channel.edit(overwrites=overwrites)
+            else:
+                print("role already in announcement channel")
+
+
         try:
             await self.collection.update_one(
                 {"_id": ctx.guild.id},
@@ -155,57 +172,91 @@ class ContestCommands(commands.Cog):
         await ctx.defer()
         guild = ctx.guild
 
+        if "FEATURE" and "NEWS" not in guild.features:
+            await ctx.send("Enable community features to use this command.")
+            return
+
         bot_member = guild.me
-        category_name = "Contest"
+        server_config = await self.collection.find_one({"_id": guild.id})
 
-        contest_category = discord.utils.get(guild.categories, name = category_name)
-        if contest_category is None:
-            overwrite = {
-                bot_member: discord.PermissionOverwrite(
-                    view_channel=True,
-                    manage_channels=True,
-                    send_messages=True,
-                    manage_threads=True,
-                    read_message_history=True
-                ),
-                guild.default_role: discord.PermissionOverwrite(view_channel=False)
-            }
-
-            contest_category = await guild.create_category(category_name, overwrites=overwrite)
-
-        async def get_or_create_channel(name, cls, reason, is_news = None, extra_overwrite = None):
-            ch = discord.utils.get(guild.channels, name = name)
-            if not ch:
-                overwrites = contest_category.overwrites.copy() if contest_category else {}
-                if extra_overwrite:
-                    overwrites.update(extra_overwrite)
-                if is_news:
-                    ch = await guild.create_text_channel(name, category=contest_category, reason=reason,overwrites=overwrites, news=is_news)
-
-                else:
-                    if cls == discord.TextChannel:
-                        ch = await guild.create_text_channel(name, category=contest_category, reason=reason)
-                    elif cls == discord.ForumChannel:
-                        ch = await guild.create_forum(name, category=contest_category, reason=reason)
-            return ch
-
-        async def get_or_create_role(name):
-            role = discord.utils.get(guild.roles, name = name)
-            return role or await guild.create_role(name = name)
-
-        submission_channel = await  get_or_create_channel("contest-submit", discord.TextChannel, "Submission channel")
-        voting_channel = await get_or_create_channel("contest-vote", discord.ForumChannel, "Voting channel")
-
-        role_overwrite = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=True, read_message_history=True)
+        # Create base permission overwrites
+        default_overwrites = {
+            guild.default_role: discord.PermissionOverwrite(
+                view_channel=False,
+                send_messages=False,
+                create_public_threads=False,
+                create_private_threads=False
+            ),
+            bot_member: discord.PermissionOverwrite(
+                view_channel=True,
+                manage_channels=True,
+                send_messages=True,
+                manage_threads=True,
+                read_message_history=True
+            )
         }
 
-        announcement_channel = await get_or_create_channel("contest-announcement", discord.TextChannel, "Announcement channel", extra_overwrite=role_overwrite, is_news=True)
-        contest_archive_channel = await get_or_create_channel("contest-archive", discord.ForumChannel, "Contest archive channel")
-        logs_channel = await get_or_create_channel("bot-logs", discord.TextChannel, "Bot log channel")
+        # Create or get "Contest" category
+        contest_category = discord.utils.get(guild.categories, name="Contest")
+        if contest_category is None:
+            contest_category = await guild.create_category("Contest", overwrites=default_overwrites)
 
+
+        contest_role = guild.get_role(server_config.get("contest_role")) if server_config else None
+
+        # If contest_role exists, give it special permissions
+        view_only_overwrite = {
+            contest_role or guild.default_role: discord.PermissionOverwrite(
+                view_channel=True,
+                read_message_history=True,
+                send_messages=False
+            )
+        }
+
+        async def get_or_create_role(name):
+            return discord.utils.get(guild.roles, name=name) or await guild.create_role(name=name)
+
+        # Handle ping role
         ping_role = await get_or_create_role("Contest Ping")
 
+        async def get_or_create_channel(name, cls, reason, is_news=False, extra_overwrite=None,
+                                        inactivity_timeout=None):
+            existing = discord.utils.get(guild.channels, name=name)
+            if existing:
+                return existing
+
+            # Start with default category overwrites
+            overwrites = default_overwrites.copy()
+            if extra_overwrite:
+                overwrites.update(extra_overwrite)
+
+            if cls == discord.TextChannel:
+                return await guild.create_text_channel(name, category=contest_category, reason=reason,
+                                                       overwrites=overwrites, news=is_news)
+            elif cls == discord.ForumChannel:
+                kwargs = {
+                    "category": contest_category,
+                    "reason": reason,
+                    "default_layout": discord.ForumLayoutType.gallery_view,
+                    "overwrites": overwrites
+                }
+                if inactivity_timeout:
+                    kwargs["default_auto_archive_duration"] = inactivity_timeout
+                return await guild.create_forum(name, **kwargs)
+            return None
+
+        # Create all needed channels
+        submission_channel = await get_or_create_channel("contest-submit", discord.TextChannel, "Submission channel")
+        voting_channel = await get_or_create_channel("contest-vote", discord.ForumChannel, "Voting channel",
+                                                     inactivity_timeout=10080)
+        announcement_channel = await get_or_create_channel("contest-announcement", discord.TextChannel,
+                                                           "Announcement channel", extra_overwrite=view_only_overwrite,
+                                                           is_news=True)
+        contest_archive_channel = await get_or_create_channel("contest-archive", discord.ForumChannel,
+                                                              "Contest archive channel")
+        logs_channel = await get_or_create_channel("bot-logs", discord.TextChannel, "Bot log channel")
+
+        # Save everything to DB
         try:
             await self.collection.update_one(
                 {"_id": ctx.guild.id},
@@ -219,6 +270,8 @@ class ContestCommands(commands.Cog):
                 }},
                 upsert=True
             )
-            await ctx.send(f"Contest channels created.")
+            await ctx.send("✅ Contest channels created successfully.")
         except Exception as e:
-            await ctx.send(f"Error: {e}")
+            await ctx.send(f"❌ Error: {e}")
+
+

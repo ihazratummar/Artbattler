@@ -3,46 +3,107 @@ import io
 import aiohttp
 import discord
 
-from bot import GUILD_ID
+
+# def get_guild(cog):
+#     return cog.bot.get_guild(GUILD_ID)
+
+async def get_submission_channel(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_channel(config["submission_channel"]) if "submission_channel" in config else None
 
 
-def get_guild(cog):
-    return cog.bot.get_guild(GUILD_ID)
+async def get_voting_channel(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_channel(config["voting_channel"]) if "voting_channel" in config else None
 
-async def get_submission_channel(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_channel(config["submission_channel"]) if config and "submission_channel" in config else None
 
-async def get_voting_channel(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_channel(config["voting_channel"]) if config and "voting_channel" in config else None
+async def get_contest_role(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_role(config["contest_role"]) if "contest_role" in config else None
 
-async def get_contest_role(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_role(config["contest_role"]) if config and "contest_role" in config else None
 
-async def get_contest_announcement_channel(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_channel(config["contest_announcement_channel"]) if config and "contest_announcement_channel" in config else None
+async def get_contest_announcement_channel(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_channel(config["contest_announcement_channel"]) if "contest_announcement_channel" in config else None
 
-async def get_contest_ping_role(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_role(config["contest_ping_role"]) if config and "contest_ping_role" in config else None
 
-async def get_contest_archive_channel(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_channel(config["contest_archive_channel"]) if config and "contest_archive_channel" in config else None
+async def get_contest_ping_role(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_role(config["contest_ping_role"]) if "contest_ping_role" in config else None
 
-async def get_logs_channel(cog):
-    guild = get_guild(cog)
-    config = await cog.server_config_collection.find_one({"_id": guild.id})
-    return guild.get_channel(config["logs_channel"]) if config and "logs_channel" in config else None
+
+async def get_contest_archive_channel(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_channel(config["contest_archive_channel"]) if "contest_archive_channel" in config else None
+
+
+async def get_logs_channel(bot, guild_id):
+    config = await bot.db["ServerConfig"].find_one({"_id": guild_id})
+    if not config:
+        return None
+    guild = bot.get_guild(guild_id)
+    if guild is None:
+        try:
+            guild = await bot.fetch_guild(guild_id)
+        except discord.NotFound:
+            print(f"❌ Guild not found. {guild_id}")
+            return None
+    return guild.get_channel(config["logs_channel"]) if "logs_channel" in config else None
+
 
 
 async def get_discord_file_from_url(url: str, filename: str = None) -> discord.File:
