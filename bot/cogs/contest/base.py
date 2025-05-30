@@ -23,6 +23,7 @@ class ContestManager(commands.Cog):
             return
         if message.channel.id != submission_channel.id or not message.attachments:
             return
+
         user_id = message.author.id
         guild_id = message.guild.id
         attachment = message.attachments[0]
@@ -30,20 +31,30 @@ class ContestManager(commands.Cog):
 
         submissions = self.bot.db.submissions
 
-        image_bytes = await  attachment.read()
+        image_bytes = await attachment.read()
         folder_path = f"bot/data/submissions/{guild_id}"
         os.makedirs(folder_path, exist_ok=True)
 
         output_path = os.path.join(folder_path, f"{user_id}.webp")
 
+        # Normalize for cross-platform safety
+        db_path = output_path.replace("\\", "/")
+
         await resize_and_save_image(image_bytes, output_path)
         print(f"Saved image for {user_id} at {output_path}")
 
-        await submissions.delete_many({"user_id":user_id, "month": current_month})
+        # Delete old submission from this guild only
+        await submissions.delete_many({
+            "user_id": user_id,
+            "guild_id": guild_id,
+            "month": current_month
+        })
+
         await submissions.insert_one({
             "user_id": user_id,
+            "guild_id": guild_id,
             "month": current_month,
-            "file_path": output_path,
-            "message_id": message.id,
-            "guild_id": message.guild.id
+            "file_path": db_path,
+            "message_id": message.id
         })
+

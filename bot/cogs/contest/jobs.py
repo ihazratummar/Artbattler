@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -5,7 +6,8 @@ import discord
 
 from bot import GMT_TIMEZONE
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
-    get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url
+    get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
+    get_logs_channel
 
 
 class ContestJobs:
@@ -20,13 +22,13 @@ class ContestJobs:
         async for config in self.collection.find({}):
             guild_id = config["_id"]
 
-            scheduler.add_job(self.open_submission_channel, "cron", day=29, hour=13, minute=51, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_submission_channel, "cron", day=29, hour=13, minute=53, second = 0,  timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.post_submission_to_forum, "cron", day=29, hour=13, minute=53, second = 0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.open_voting_channel, "cron", day=29, hour=13, minute=53,second = 30, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_voting_channel, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.announce_winner, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
-            scheduler.add_job(self.close_contest, "cron", day=29, hour=13, minute=55, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.open_submission_channel, "cron", day=30, hour=14, minute=50, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_submission_channel, "cron", day=30, hour=14, minute=52, second = 0,  timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.post_submission_to_forum, "cron", day=30, hour=14, minute=58, second = 0, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.open_voting_channel, "cron", day=30, hour=14, minute=58,second = 10, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_voting_channel, "cron", day=30, hour=14, minute=59, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.announce_winner, "cron", day=30, hour=14, minute=59, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
+            scheduler.add_job(self.close_contest, "cron", day=30, hour=14, minute=59, timezone=GMT_TIMEZONE, kwargs={"guild_id": guild_id})
 
     async def open_submission_channel(self, guild_id: int = None):
         submission_channel = await get_submission_channel(self.bot, guild_id= guild_id)
@@ -37,6 +39,7 @@ class ContestJobs:
 
         if member is None:
             print("❌ Contest role not set.")
+
             return
 
 
@@ -94,7 +97,10 @@ class ContestJobs:
             return print("❌ Voting channel not set.")
 
         current_month = datetime.now(GMT_TIMEZONE).strftime("%Y-%m")
-        submissions = self.submissions_collection.find({"month": current_month})
+        submissions = self.submissions_collection.find({
+            "month": current_month,
+            "guild_id": guild_id  # ✅ Only get submissions from this guild
+        })
 
         member = await get_contest_role(self.bot, guild_id= guild_id)
         if member is None:
@@ -105,7 +111,14 @@ class ContestJobs:
             user = guild.get_member(entry["user_id"])
             if not user:
                 continue
-            file = discord.File(entry["file_path"], filename="submission.webp")
+
+            file_path = os.path.normpath(entry["file_path"])  # ✅ convert / to OS-specific path
+
+            if not os.path.exists(file_path):
+                print(f"❌ File not found at {file_path}")
+                continue
+
+            file = discord.File(file_path, filename="submission.webp")
 
             # Create thread
             thread = await voting_channel.create_thread(
@@ -123,7 +136,6 @@ class ContestJobs:
                 {"_id": entry["_id"]},
                 {"$set": {"thread_id": thread.message.id}}
             )
-            return None
         return None
 
     async def open_voting_channel(self, guild_id: int = None,):

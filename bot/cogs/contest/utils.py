@@ -102,7 +102,7 @@ async def get_logs_channel(bot, guild_id):
         except discord.NotFound:
             print(f"❌ Guild not found. {guild_id}")
             return None
-    return guild.get_channel(config["logs_channel"]) if "logs_channel" in config else None
+    return guild.get_channel(config["contest_logs_channel"]) if "contest_logs_channel" in config else None
 
 
 
