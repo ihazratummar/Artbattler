@@ -12,6 +12,7 @@ __pycache__/
 
 .idea/
 /.idea
+/assests/
 
 # Distribution / packaging
 .Python
