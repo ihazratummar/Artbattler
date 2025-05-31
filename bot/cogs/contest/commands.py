@@ -3,13 +3,13 @@ from discord.ext import commands
 
 from bot.cogs.contest.utils import get_logs_channel
 from bot.core.error_embed import create_logs_embed
+from bot.utils.update_schedule import validate_time_inputs, update_schedule
 
 
 class ContestCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.collection = self.bot.db["ServerConfig"]
-
 
     @commands.hybrid_command(name="contest_submission_channel", description="Select submission channel")
     @commands.has_permissions(administrator=True)
@@ -357,3 +357,115 @@ class ContestCommands(commands.Cog):
             await ctx.send("✅ Contest channels created successfully.")
         except Exception as e:
             await ctx.send(f"❌ Error: {e}")
+
+    @commands.hybrid_command(name="set_submission_open_time", description="Set submission time")
+    @commands.has_permissions(administrator=True)
+    async def set_submission_open_time(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="open_submission", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Submission time set successfully.\n➡️ Now set when to ** close the submission channel** using `/set_close_submission_time`.",
+            ephemeral=True)
+
+    @commands.hybrid_command(name="set_close_submission", description="Set time for submission close time")
+    @commands.has_permissions(administrator=True)
+    async def set_close_submission(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="close_submission", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Close submission time updated.\n➡️ Next, set the **post to forum** time using `/set_post_to_forum_time`.",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="set_post_to_forum", description="Set time for posting submissions to forum")
+    @commands.has_permissions(administrator=True)
+    async def set_post_to_forum(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="post_submission", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Post to forum time updated.\n➡️ Next, set the **open voting** time using `/set_open_voting_time`.",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="set_open_voting", description="Set time for opening voting")
+    @commands.has_permissions(administrator=True)
+    async def set_open_voting(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="open_voting", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Open voting time updated.\n➡️ Now set the **close voting** time using `/set_close_voting_time`.",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="set_close_voting_time", description="Set time for closing voting")
+    @commands.has_permissions(administrator=True)
+    async def set_close_voting_time(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="close_voting", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Close voting time updated.\n➡️ Next, set the **announce winner** time using `/set_announce_winner_time`.",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="set_announce_winner_time", description="Set time for announcing the winner")
+    @commands.has_permissions(administrator=True)
+    async def set_announce_winner_time(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="announce_winner", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Announce winner time updated.\n➡️ Lastly, set the **close contest** time using `/set_close_contest_time`.",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="set_close_contest_time", description="Set time for closing the contest")
+    @commands.has_permissions(administrator=True)
+    async def set_close_contest_time(self, ctx: commands.Context, day: int, hour: int, minute: int, seconds: int = 0):
+        if not await validate_time_inputs(ctx=ctx, day=day, hour=hour, minute=minute, seconds=seconds):
+            return
+
+        await update_schedule(collection=self.collection, key="close_contest", guild_id=ctx.guild.id, day=day,
+                              hour=hour, minute=minute, second=seconds)
+        await ctx.send(
+            "✅ Close contest time updated.\n🎉 All contest timings are now configured! You’re ready to go!",
+            ephemeral=True
+        )
+
+    @commands.hybrid_command(name="help", description="Get bot's guild id")
+    async def help(self, ctx: commands.Context):
+
+        embed = discord.Embed(
+            title="👋 Welcome to Contest Bot!",
+            description=(
+                "Here’s how to get started with your monthly contest setup:\n\n"
+                "**1️⃣ `/create_contest_channel`** – Create the channel where users submit entries.\n"
+                "**2️⃣ `/contest_role`** – Set the role to be notified for contest events.\n"
+                "**3️⃣ `/set_submission_open_time`** – Set when submissions should open.\n"
+                "**4️⃣ `/set_close_submission_time`** – Set when submissions should close.\n"
+                "**5️⃣ `/set_post_to_forum_time`** – When to post entries to the forum.\n"
+                "**6️⃣ `/set_voting_open_time`** – When the voting channel opens.\n"
+                "**7️⃣ `/set_voting_close_time`** – When voting ends.\n"
+                "**8️⃣ `/set_announce_winner_time`** – When to announce the winner.\n"
+                "**9️⃣ `/set_contest_close_time`** – When the entire contest ends.\n\n"
+                "✅ Once these are set, the bot will take care of everything monthly!"
+            ),
+            color=discord.Color.purple()
+        )
+        await ctx.send(embed=embed)

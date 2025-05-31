@@ -124,3 +124,4 @@ async def get_discord_file_from_url(url: str, filename: str = None) -> discord.F
                 raise Exception(f"Failed to fetch file: HTTP {resp.status}")
             data = io.BytesIO(await resp.read())
             return discord.File(data, filename=filename)
+

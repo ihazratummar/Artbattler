@@ -20,10 +20,10 @@ MONGO_URI = os.getenv("MONGO_URI")
 
 MONGO_CLIENT = AsyncIOMotorClient(MONGO_URI)
 
-GMT_TIMEZONE = ZoneInfo("Etc/GMT")
+SCHEDULE_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 __all__ = [
     "DISCORD_TOKEN",
     "MONGO_CLIENT",
-    "GMT_TIMEZONE"
+    "SCHEDULE_TIMEZONE"
 ]

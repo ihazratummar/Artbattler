@@ -4,6 +4,7 @@ from discord import Message
 from discord.ext import commands  # type: ignore
 
 from bot import MONGO_CLIENT
+from bot.utils.dm_help import dm_help_guide
 
 exts = [
     # "bot.cogs.contest_manager",
@@ -53,3 +54,6 @@ class Bot(commands.Bot):
             else:
                 print(f"Cog {cog_name} not found")
         await self.process_commands(message)
+
+    async def on_guild_join(self, guild: discord.Guild):
+        await dm_help_guide(guild, discord)
