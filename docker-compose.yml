@@ -7,3 +7,6 @@ services:
       dockerfile: Dockerfile
     container_name: ar_battler_discord_bot
     restart: always
+    environment:
+      - DISCORD_TOKEN
+      - MONGO_URI
