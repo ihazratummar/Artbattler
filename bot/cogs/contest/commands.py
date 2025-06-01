@@ -498,3 +498,8 @@ class ContestCommands(commands.Cog):
             color=discord.Color.purple()
         )
         await ctx.send(embed=embed)
+
+
+    @commands.hybrid_command(name="ping", description="Ping contest role")
+    async def ping(self, ctx: commands.Context):
+        await ctx.send(f"Pong!")
