@@ -49,63 +49,55 @@ class ContestManager(commands.Cog):
             return
 
         # Check: Correct channel and has an image
-        if message.channel.id != submission_channel.id or not attachment:
-            await log_to_logs_channel(
-                title="❌ Invalid Submission Location",
-                description=f"{message.author.mention} tried to submit in <#{message.channel.id}> instead of <#{submission_channel.id}>.",
-                color=discord.Color.orange()
-            )
-            return
+        if attachment:
+            if message.channel.id != submission_channel.id:
+                await log_to_logs_channel(
+                    title="❌ Invalid Submission Location",
+                    description=f"{message.author.mention} tried to submit in <#{message.channel.id}> instead of <#{submission_channel.id}>.",
+                    color=discord.Color.orange()
+                )
+                return
+            else:
+                current_month = datetime.now(SCHEDULE_TIMEZONE).strftime("%Y-%m")
+                submissions = self.bot.db.submissions
+                image_bytes = await attachment.read()
 
-        if not attachment:
-            await log_to_logs_channel(
-                title="❌ No Attachment Found",
-                description=f"{message.author.mention} submitted a message without an image attachment.",
-                color=discord.Color.orange()
-            )
-            return
+                folder_path = f"bot/data/submissions/{guild_id}"
+                os.makedirs(folder_path, exist_ok=True)
+                output_path = os.path.join(folder_path, f"{user_id}.webp")
+                db_path = output_path.replace("\\", "/")  # Normalize
 
-        # Store image
-        current_month = datetime.now(SCHEDULE_TIMEZONE).strftime("%Y-%m")
-        submissions = self.bot.db.submissions
-        image_bytes = await attachment.read()
+                try:
+                    await resize_and_save_image(image_bytes, output_path)
+                    print(f"✅ Saved image for {user_id} at {output_path}")
+                except Exception as e:
+                    await log_to_logs_channel(
+                        title="❌ Image Processing Failed",
+                        description=f"{message.author.mention} submitted an image, but it couldn't be resized.\nError: `{str(e)}`",
+                        color=discord.Color.red()
+                    )
+                    return
 
-        folder_path = f"bot/data/submissions/{guild_id}"
-        os.makedirs(folder_path, exist_ok=True)
-        output_path = os.path.join(folder_path, f"{user_id}.webp")
-        db_path = output_path.replace("\\", "/")  # Normalize
+                await log_to_logs_channel(
+                    title="✅ New Contest Submission",
+                    description=f"{message.author.mention} submitted an image for the contest.",
+                    color=discord.Color.green(),
+                    image=attachment.url
+                )
 
-        try:
-            await resize_and_save_image(image_bytes, output_path)
-            print(f"✅ Saved image for {user_id} at {output_path}")
-        except Exception as e:
-            await log_to_logs_channel(
-                title="❌ Image Processing Failed",
-                description=f"{message.author.mention} submitted an image, but it couldn't be resized.\nError: `{str(e)}`",
-                color=discord.Color.red()
-            )
-            return
+                # Replace previous month's submission if any
+                await submissions.delete_many({
+                    "user_id": user_id,
+                    "guild_id": guild_id,
+                    "month": current_month
+                })
 
-        await log_to_logs_channel(
-            title="✅ New Contest Submission",
-            description=f"{message.author.mention} submitted an image for the contest.",
-            color=discord.Color.green(),
-            image=attachment.url
-        )
-
-        # Replace previous month's submission if any
-        await submissions.delete_many({
-            "user_id": user_id,
-            "guild_id": guild_id,
-            "month": current_month
-        })
-
-        await submissions.insert_one({
-            "user_id": user_id,
-            "guild_id": guild_id,
-            "month": current_month,
-            "file_path": db_path,
-            "message_id": message.id
-        })
+                await submissions.insert_one({
+                    "user_id": user_id,
+                    "guild_id": guild_id,
+                    "month": current_month,
+                    "file_path": db_path,
+                    "message_id": message.id
+                })
 
 
