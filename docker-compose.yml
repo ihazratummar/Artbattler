@@ -1,10 +1,11 @@
+version: "3.8"
+
 services:
   bot:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ar_battler_bot-bot:latest
-    container_name: ar_battler_discord_bot
+    container_name: art_battler_discord_bot
     restart: always
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
