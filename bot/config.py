@@ -8,7 +8,6 @@ from bot.core.constants import DbConstants
 from bot.utils.dm_help import dm_help_guide
 
 exts = [
-    # "bot.cogs.contest_manager",
     "bot.cogs.contest"
 ]
 
