@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: art_battler_discord_bot
-    restart: always
     environment:
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-      - MONGO_URI=${MONGO_URI}
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      MONGO_URI: ${MONGO_URI}
