@@ -1,7 +1,7 @@
-import discord  # type: ignore
-from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore
+import discord
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord import Message
-from discord.ext import commands  # type: ignore
+from discord.ext import commands
 
 from bot import MONGO_CLIENT
 from bot.core.constants import DbConstants
