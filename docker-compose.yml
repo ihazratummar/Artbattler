@@ -2,9 +2,7 @@ version: "3.8"
 
 services:
   bot:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: art_battler_bot-bot:latest
     container_name: ar_battler_discord_bot
     restart: always
     environment:
