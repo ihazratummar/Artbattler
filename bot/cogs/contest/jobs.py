@@ -8,6 +8,7 @@ from bot import SCHEDULE_TIMEZONE
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
     get_logs_channel
+from bot.core.constants import Constants, DbConstants
 from bot.core.error_embed import create_logs_embed
 
 
@@ -15,75 +16,102 @@ class ContestJobs:
     def __init__(self, cog):
         self.cog = cog
         self.bot = self.cog.bot
-        self.collection = self.bot.db["ServerConfig"]
-        self.submissions_collection = self.bot.db["submissions"]
+        self.collection = self.bot.db[DbConstants.SERVER_CONFIG_COLLECTION]
+        self.submissions_collection = self.bot.db[DbConstants.SUBMISSION_COLLECTION]
 
     async def schedule_job(self):
-        scheduler = self.bot.scheduler
         async for config in self.collection.find({}):
             guild_id = config["_id"]
-            schedule = config.get("schedule", {})
+            await self.setup_jobs_for_guild(guild_id, config)
 
-            def get_time(key: str, default: dict):
-                # Return schedule[key] if it exists and has required fields
-                value = schedule.get(key)
-                if value and all(k in value for k in ("day", "hour", "minute", "second")):
-                    return {
-                        "day": value["day"],
-                        "hour": value["hour"],
-                        "minute": value["minute"],
-                        "second": value["second"]
-                    }
-                return default
+    async def reschedule_job(self, guild_id: int):
+        config = await self.collection.find_one({"_id": guild_id})
+        if config:
+            await self.setup_jobs_for_guild(guild_id, config, clear_existing=True)
 
-            scheduler.add_job(
-                self.open_submission_channel, "cron",
-                **get_time("open_submission", {"day": 1, "hour": 0, "minute": 0, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+    async def setup_jobs_for_guild(self, guild_id: int, config: dict, clear_existing: bool = False):
+        scheduler = self.bot.scheduler
+        schedule = config.get("schedule", {})
 
-            scheduler.add_job(
-                self.close_submission_channel, "cron",
-                **get_time("close_submission", {"day": 14, "hour": 23, "minute": 0, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        if clear_existing:
+            for job_id in [
+                f"open_submission_{guild_id}",
+                f"close_submission_{guild_id}",
+                f"post_submission_to_forum_{guild_id}",
+                f"open_voting_{guild_id}",
+                f"close_voting_{guild_id}",
+                f"announce_winner_{guild_id}",
+                f"close_contest_{guild_id}",
+            ]:
+                if scheduler.get_job(job_id):
+                    scheduler.remove_job(job_id)
 
-            scheduler.add_job(
-                self.post_submission_to_forum, "cron",
-                **get_time("post_submission", {"day": 14, "hour": 23, "minute": 30, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        def get_time(key: str, default: dict):
+            value = schedule.get(key)
+            if value and all(k in value for k in ("day", "hour", "minute", "second")):
+                return {
+                    "day": value["day"],
+                    "hour": value["hour"],
+                    "minute": value["minute"],
+                    "second": value["second"]
+                }
+            return default
 
-            scheduler.add_job(
-                self.open_voting_channel, "cron",
-                **get_time("open_voting", {"day": 16, "hour": 23, "minute": 59, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        scheduler.add_job(
+            self.open_submission_channel, Constants.TRIGGER,
+            id=f"open_submission_{guild_id}",
+            **get_time("open_submission", {"day": 1, "hour": 0, "minute": 0, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
 
-            scheduler.add_job(
-                self.close_voting_channel, "cron",
-                **get_time("close_voting", {"day": 27, "hour": 23, "minute": 59, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        scheduler.add_job(
+            self.close_submission_channel, Constants.TRIGGER,
+            id=f"close_submission_{guild_id}",
+            **get_time("close_submission", {"day": 14, "hour": 23, "minute": 0, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
 
-            scheduler.add_job(
-                self.announce_winner, "cron",
-                **get_time("announce_winner", {"day": 28, "hour": 0, "minute": 0, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        scheduler.add_job(
+            self.post_submission_to_forum, Constants.TRIGGER,
+            id=f"post_submission_to_forum_{guild_id}",
+            **get_time("post_submission", {"day": 14, "hour": 23, "minute": 30, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
 
-            scheduler.add_job(
-                self.close_contest, "cron",
-                **get_time("close_contest", {"day": 28, "hour": 22, "minute": 0, "second": 0}),
-                timezone=SCHEDULE_TIMEZONE,
-                kwargs={"guild_id": guild_id}
-            )
+        scheduler.add_job(
+            self.open_voting_channel, Constants.TRIGGER,
+            id=f"open_voting_{guild_id}",
+            **get_time("open_voting", {"day": 16, "hour": 23, "minute": 59, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
+
+        scheduler.add_job(
+            self.close_voting_channel, Constants.TRIGGER,
+            id=f"close_voting_{guild_id}",
+            **get_time("close_voting", {"day": 27, "hour": 23, "minute": 59, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
+
+        scheduler.add_job(
+            self.announce_winner, Constants.TRIGGER,
+            id=f"announce_winner_{guild_id}",
+            **get_time("announce_winner", {"day": 28, "hour": 0, "minute": 0, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
+
+        scheduler.add_job(
+            self.close_contest, Constants.TRIGGER,
+            id=f"close_contest_{guild_id}",
+            **get_time("close_contest", {"day": 28, "hour": 22, "minute": 0, "second": 0}),
+            timezone=SCHEDULE_TIMEZONE,
+            kwargs={"guild_id": guild_id}
+        )
 
     async def open_submission_channel(self, guild_id: int = None):
         submission_channel = await get_submission_channel(self.bot, guild_id=guild_id)
@@ -132,7 +160,7 @@ class ContestJobs:
             await announcement_channel.send(
                 f"{contest_ping_role.mention if contest_ping_role else ''}The submission channel is now open! Please submit your entries here: <#{submission_channel.id}>."
             )
-        print("🔓 Opened submission channel at", datetime.utcnow())
+        print("🔓 Opened submission channel at", datetime.now())
 
     async def close_submission_channel(self, guild_id: int = None):
         logs_channel = await get_logs_channel(self.bot, guild_id=guild_id)
@@ -176,7 +204,7 @@ class ContestJobs:
                 f"{contest_ping_role.mention if contest_ping_role else ''}The submission channel is now closed. Please submit your entries again in the next Month."
             )
 
-        print("🔒 Closed submission channel at", datetime.utcnow())
+        print("🔒 Closed submission channel at", datetime.now())
 
     async def post_submission_to_forum(self, guild_id: int = None, ):
         guild = self.bot.get_guild(guild_id)

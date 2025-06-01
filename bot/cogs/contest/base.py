@@ -8,6 +8,7 @@ from bot import SCHEDULE_TIMEZONE
 from bot.cogs.contest.jobs import ContestJobs
 from bot.cogs.contest.utils import get_submission_channel, get_logs_channel
 from bot.config import Bot
+from bot.core.constants import DbConstants
 from bot.core.error_embed import create_logs_embed
 from bot.utils.image_utils import resize_and_save_image
 
@@ -15,7 +16,7 @@ from bot.utils.image_utils import resize_and_save_image
 class ContestManager(commands.Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
-        self.server_config_collection = bot.db["ServerConfig"]
+        self.server_config_collection = bot.db[DbConstants.SERVER_CONFIG_COLLECTION]
         self.jobs = ContestJobs(cog=self)
 
     async def track_image_upload(self, message: discord.Message):

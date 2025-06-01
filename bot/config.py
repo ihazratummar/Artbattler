@@ -4,6 +4,7 @@ from discord import Message
 from discord.ext import commands  # type: ignore
 
 from bot import MONGO_CLIENT
+from bot.core.constants import DbConstants
 from bot.utils.dm_help import dm_help_guide
 
 exts = [
@@ -15,7 +16,7 @@ class Bot(commands.Bot):
     def __init__(self, command_prefix: str, intents: discord.Intents,  **kwargs):
         super().__init__(command_prefix, intents=intents, **kwargs)
         self.mongo_client = MONGO_CLIENT
-        self.db = self.mongo_client["contest_bot"]
+        self.db = self.mongo_client[DbConstants.DB_NAME]
         self.scheduler = AsyncIOScheduler()
 
 
