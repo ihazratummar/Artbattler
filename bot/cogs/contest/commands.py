@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 
+from bot.cogs.contest.jobs import ContestJobs
 from bot.cogs.contest.utils import get_logs_channel
 from bot.core.error_embed import create_logs_embed
 from bot.utils.update_schedule import validate_time_inputs, update_schedule
@@ -10,6 +11,13 @@ class ContestCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.collection = self.bot.db["ServerConfig"]
+        self.jobs = ContestJobs(self)
+
+    async def reschedule_job(self, ctx):
+        try:
+            await self.jobs.reschedule_job(guild_id=ctx.guild.id)
+        except Exception as e:
+            print(f"Error rescheduling job: {e}")
 
     @commands.hybrid_command(name="contest_submission_channel", description="Select submission channel")
     @commands.has_permissions(administrator=True)
@@ -366,6 +374,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="open_submission", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Submission time set successfully.\n➡️ Now set when to ** close the submission channel** using `/set_close_submission_time`.",
             ephemeral=True)
@@ -378,6 +389,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="close_submission", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Close submission time updated.\n➡️ Next, set the **post to forum** time using `/set_post_to_forum_time`.",
             ephemeral=True
@@ -391,6 +405,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="post_submission", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Post to forum time updated.\n➡️ Next, set the **open voting** time using `/set_open_voting_time`.",
             ephemeral=True
@@ -404,6 +421,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="open_voting", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Open voting time updated.\n➡️ Now set the **close voting** time using `/set_close_voting_time`.",
             ephemeral=True
@@ -417,6 +437,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="close_voting", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Close voting time updated.\n➡️ Next, set the **announce winner** time using `/set_announce_winner_time`.",
             ephemeral=True
@@ -430,6 +453,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="announce_winner", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Announce winner time updated.\n➡️ Lastly, set the **close contest** time using `/set_close_contest_time`.",
             ephemeral=True
@@ -443,6 +469,9 @@ class ContestCommands(commands.Cog):
 
         await update_schedule(collection=self.collection, key="close_contest", guild_id=ctx.guild.id, day=day,
                               hour=hour, minute=minute, second=seconds)
+
+        await self.reschedule_job(ctx=ctx)
+
         await ctx.send(
             "✅ Close contest time updated.\n🎉 All contest timings are now configured! You’re ready to go!",
             ephemeral=True
