@@ -3,7 +3,6 @@ from datetime import datetime
 from pathlib import Path
 
 import discord
-
 from bot import SCHEDULE_TIMEZONE
 from bot.cogs.contest.utils import get_submission_channel, get_contest_role, get_voting_channel, \
     get_contest_announcement_channel, get_contest_ping_role, get_contest_archive_channel, get_discord_file_from_url, \
