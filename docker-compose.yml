@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ar_battler_discord_bot
+    restart: always
