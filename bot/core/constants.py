@@ -1,8 +1,16 @@
-class _Channel:
-    SUBMISSION_CHANNEL = 1376762923568861296
-    ART_CONTEST_CHANNEL = 1376768185721819268
+class _Constants:
+    TRIGGER = "cron"
 
-Channel = _Channel()
 
-class _Role:
-    MEMBER = 1376762923568861296
+Constants = _Constants()
+
+
+class _Database:
+    DB_NAME = "contest_bot"
+
+
+    ##Collections
+    SERVER_CONFIG_COLLECTION = "ServerConfig"
+    SUBMISSION_COLLECTION = "submissions"
+
+DbConstants = _Database()
