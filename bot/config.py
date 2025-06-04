@@ -11,6 +11,9 @@ exts = [
     "bot.cogs.contest"
 ]
 
+
+#test
+
 class Bot(commands.Bot):
     def __init__(self, command_prefix: str, intents: discord.Intents,  **kwargs):
         super().__init__(command_prefix, intents=intents, **kwargs)
