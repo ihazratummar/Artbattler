@@ -12,7 +12,6 @@ exts = [
 ]
 
 
-#test
 
 class Bot(commands.Bot):
     def __init__(self, command_prefix: str, intents: discord.Intents,  **kwargs):
