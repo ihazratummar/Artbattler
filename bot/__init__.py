@@ -9,7 +9,7 @@ load_dotenv()
 
 
 # Environmental
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN").strip('"')
 MONGO_URI = os.getenv("MONGO_URI").strip('"')
 
 
