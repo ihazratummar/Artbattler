@@ -17,6 +17,8 @@ MONGO_URI = os.getenv("MONGO_URI")
 
 MONGO_CLIENT = AsyncIOMotorClient(MONGO_URI)
 
+
+#Timezone
 SCHEDULE_TIMEZONE = ZoneInfo("Asia/Kolkata")
 
 __all__ = [
