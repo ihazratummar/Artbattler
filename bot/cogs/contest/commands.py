@@ -19,6 +19,7 @@ class ContestCommands(commands.Cog):
         except Exception as e:
             print(f"Error rescheduling job: {e}")
 
+
     @commands.hybrid_command(name="contest_submission_channel", description="Select submission channel")
     @commands.has_permissions(administrator=True)
     async def contest_submission_channel(self, ctx: commands.Context, *, channel: discord.TextChannel = None):
